@@ -1,0 +1,2227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+<title>Songleaf</title>
+<meta name="description" content="Store your lyrics and scan printed or handwritten lyric sheets.">
+<meta name="theme-color" content="#5C1A1B">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Songleaf">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  :root{
+    --ink: #2B1B12;
+    --ink-soft: #6B5A47;
+    --paper: #F4EEDF;
+    --paper-2: #EAE1C8;
+    --paper-edge: #D9CBA3;
+    --maroon: #5C1A1B;
+    --maroon-deep: #401212;
+    --gold: #B4872F;
+    --gold-bright: #D4A537;
+    --bg: #EDE4CD;
+    --danger: #8A2E1F;
+    --shadow: rgba(43,27,18,0.16);
+    --serif: 'Lora', Georgia, 'Times New Roman', serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink: #EFE6D2;
+      --ink-soft: #B9AB90;
+      --paper: #2A2019;
+      --paper-2: #362A20;
+      --paper-edge: #4A3A2A;
+      --maroon: #A3423F;
+      --maroon-deep: #7A2F2C;
+      --gold: #D9B24C;
+      --gold-bright: #E7C568;
+      --bg: #1B140F;
+      --danger: #D06B54;
+      --shadow: rgba(0,0,0,0.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink: #EFE6D2;
+    --ink-soft: #B9AB90;
+    --paper: #2A2019;
+    --paper-2: #362A20;
+    --paper-edge: #4A3A2A;
+    --maroon: #A3423F;
+    --maroon-deep: #7A2F2C;
+    --gold: #D9B24C;
+    --gold-bright: #E7C568;
+    --bg: #1B140F;
+    --danger: #D06B54;
+    --shadow: rgba(0,0,0,0.45);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app{
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--bg);
+  }
+
+  /* ---------- Header ---------- */
+  .app-header{
+    background: linear-gradient(180deg, var(--maroon) 0%, var(--maroon-deep) 100%);
+    color: #F4EEDF;
+    padding: 22px 20px 18px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    box-shadow: 0 2px 10px var(--shadow);
+  }
+  .app-header .mark{
+    display:flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .app-header h1{
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 26px;
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+  .app-header .tagline{
+    font-size: 12.5px;
+    color: rgba(244,238,223,0.72);
+    margin-top: 3px;
+    font-style: italic;
+    font-family: var(--serif);
+  }
+
+  /* ---------- Main scroll area ---------- */
+  .view{
+    flex: 1;
+    padding: 16px 16px 100px;
+    overflow-y: auto;
+  }
+  .view.hidden{ display:none; }
+
+  /* ---------- Search + new bar ---------- */
+  .toolbar{
+    display:flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .search-wrap{
+    flex:1;
+    position: relative;
+  }
+  .search-wrap svg{
+    position:absolute; left:11px; top:50%; transform:translateY(-50%);
+    width:16px; height:16px; opacity:0.55;
+  }
+  .search-wrap input{
+    width:100%;
+    padding: 10px 12px 10px 34px;
+    border-radius: 10px;
+    border: 1px solid var(--paper-edge);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14.5px;
+  }
+  .search-wrap input:focus{ outline: 2px solid var(--gold); outline-offset: 1px; }
+  .btn-new{
+    background: var(--maroon);
+    color: #F4EEDF;
+    border: none;
+    border-radius: 10px;
+    padding: 0 16px;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-new:active{ transform: translateY(1px); }
+
+  /* ---------- Library list ---------- */
+  .lyric-card{
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    position: relative;
+    transition: box-shadow .15s ease;
+  }
+  .lyric-card:active{ box-shadow: inset 0 1px 6px var(--shadow); }
+  .lyric-card .row-top{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .lyric-card h3{
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 17px;
+    margin: 0;
+    color: var(--ink);
+  }
+  .lyric-card .tag{
+    font-size: 11px;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 20px;
+    padding: 1px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: var(--sans);
+  }
+  .lyric-card .artist{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .lyric-card .snippet{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 8px;
+    font-family: var(--serif);
+    font-style: italic;
+    line-height: 1.4;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .empty-state{
+    text-align: center;
+    padding: 60px 24px 20px;
+    color: var(--ink-soft);
+  }
+  .empty-state .icon{ font-size: 38px; margin-bottom: 10px; }
+  .empty-state h3{
+    font-family: var(--serif);
+    color: var(--ink);
+    font-size: 19px;
+    margin: 0 0 6px;
+  }
+  .empty-state p{ font-size: 13.5px; line-height: 1.5; margin: 0 0 18px; }
+  .empty-state .btn-new{ padding: 10px 18px; }
+
+  /* ---------- Scan view ---------- */
+  .scan-drop{
+    border: 1.5px dashed var(--paper-edge);
+    border-radius: 14px;
+    padding: 34px 20px;
+    text-align: center;
+    background: var(--paper);
+    color: var(--ink-soft);
+    position: relative;
+  }
+  .scan-drop .icon{ font-size: 34px; margin-bottom: 8px; }
+  .scan-drop h3{
+    font-family: var(--serif);
+    color: var(--ink);
+    font-size: 17px;
+    margin: 0 0 4px;
+  }
+  .scan-drop p{ font-size: 13px; margin: 0 0 16px; line-height:1.5; }
+  .scan-buttons{ display:flex; gap:10px; justify-content:center; flex-wrap: wrap; }
+  .scan-buttons label{
+    background: var(--maroon);
+    color: #F4EEDF;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display:inline-block;
+  }
+  .scan-buttons label.secondary{
+    background: transparent;
+    border: 1px solid var(--maroon);
+    color: var(--maroon);
+  }
+  input[type=file]{ display:none; }
+
+  .scan-preview{ margin-top: 16px; }
+  .scan-preview img{
+    width:100%;
+    border-radius: 12px;
+    border: 1px solid var(--paper-edge);
+    display:block;
+  }
+  .scan-progress{
+    margin-top: 14px;
+    background: var(--paper-2);
+    border-radius: 8px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .scan-progress-bar{
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+    width: 0%;
+    transition: width .25s ease;
+  }
+  .scan-progress-bar.indeterminate{
+    width: 40% !important;
+    animation: scan-indeterminate 1.3s ease-in-out infinite;
+  }
+  @keyframes scan-indeterminate{
+    0%   { margin-left: -40%; }
+    100% { margin-left: 100%; }
+  }
+  .scan-status{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 8px;
+    text-align: center;
+  }
+  .scan-error{
+    margin-top: 14px;
+    background: rgba(138,46,31,0.1);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .field{ margin-top: 16px; }
+  .field label{
+    display:block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+  }
+  .field input[type=text], .field select, .field textarea{
+    width:100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--paper-edge);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14.5px;
+  }
+  .field textarea{
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.55;
+    resize: vertical;
+    min-height: 160px;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline: 2px solid var(--gold); outline-offset: 1px;
+  }
+
+  /* ---------- Tab bar ---------- */
+  .tabbar{
+    position: sticky;
+    bottom: 0;
+    display:flex;
+    background: var(--paper);
+    border-top: 1px solid var(--paper-edge);
+    box-shadow: 0 -2px 10px var(--shadow);
+    z-index: 20;
+  }
+  .tabbar button{
+    flex:1;
+    background: none;
+    border: none;
+    padding: 10px 0 8px;
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    color: var(--ink-soft);
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .tabbar button svg{ width: 21px; height: 21px; }
+  .tabbar button.active{ color: var(--maroon); }
+  .tabbar button.active svg{ stroke: currentColor; }
+  :root[data-theme="dark"] .tabbar button.active{ color: var(--gold-bright); }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .tabbar button.active{ color: var(--gold-bright); }
+  }
+
+  /* ---------- Editor overlay ---------- */
+  .overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display:flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 50;
+  }
+  .overlay.hidden{ display:none; }
+  .sheet{
+    background: var(--bg);
+    width: 100%;
+    max-width: 480px;
+    max-height: 92vh;
+    border-radius: 18px 18px 0 0;
+    display:flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sheet-header{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--paper-edge);
+    background: var(--paper);
+  }
+  .sheet-header h2{
+    font-family: var(--serif);
+    font-size: 18px;
+    margin:0;
+  }
+  .sheet-header button{
+    background:none; border:none; font-size: 15px; color: var(--ink-soft);
+    cursor:pointer; padding: 4px 6px; font-family: var(--sans); font-weight:600;
+  }
+  .sheet-body{
+    padding: 6px 18px 18px;
+    overflow-y: auto;
+  }
+  .sheet-footer{
+    padding: 14px 18px;
+    border-top: 1px solid var(--paper-edge);
+    background: var(--paper);
+    display:flex;
+    gap: 10px;
+  }
+  .btn-primary{
+    flex:1;
+    background: var(--maroon);
+    color:#F4EEDF;
+    border:none;
+    border-radius: 10px;
+    padding: 12px 0;
+    font-weight:700;
+    font-size:14.5px;
+    cursor:pointer;
+    font-family: var(--sans);
+  }
+  .btn-delete{
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+    font-family: var(--sans);
+  }
+
+  /* ---------- Lyric viewer (read-only, formatted) ---------- */
+  .viewer-heading h2{
+    font-family: var(--serif);
+    font-size: 19px;
+    margin: 0;
+  }
+  .viewer-meta{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 3px;
+  }
+  .lyric-line-chord{
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: calc(12.5px * var(--vz, 1));
+    color: var(--gold);
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.3;
+  }
+  :root[data-theme="dark"] .lyric-line-chord{ color: var(--gold-bright); }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .lyric-line-chord{ color: var(--gold-bright); }
+  }
+  .lyric-line-meta{
+    font-family: var(--sans);
+    font-size: calc(12.5px * var(--vz, 1));
+    color: var(--ink-soft);
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .lyric-line-section{
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: calc(12.5px * var(--vz, 1));
+    color: var(--maroon);
+    margin-top: 16px;
+    margin-bottom: 2px;
+  }
+  :root[data-theme="dark"] .lyric-line-section{ color: var(--gold-bright); }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .lyric-line-section{ color: var(--gold-bright); }
+  }
+  .lyric-line-lyric{
+    font-family: var(--serif);
+    font-size: calc(19px * var(--vz, 1));
+    font-weight: 500;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+  .lyric-line-blank{ height: calc(12px * var(--vz, 1)); }
+  .lyric-empty{
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    font-style: italic;
+    padding: 20px 0;
+    text-align: center;
+  }
+  #viewer-body{
+    touch-action: pan-y;
+  }
+  .viewer-zoom-bar{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--paper-edge);
+  }
+  .viewer-zoom-btn{
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--paper-edge);
+    background: transparent;
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+    font-family: var(--sans);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .viewer-zoom-label{
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    min-width: 42px;
+    text-align: center;
+  }
+  .viewer-zoom-reset{
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-left: auto;
+  }
+
+  .toast{
+    position: fixed;
+    bottom: 88px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 9px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-family: var(--sans);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 60;
+    max-width: 90%;
+    text-align: center;
+  }
+  .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  ::selection{ background: var(--gold); color: var(--maroon-deep); }
+
+  /* ---------- Import banner ---------- */
+  .import-banner{
+    background: var(--paper-2);
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    display:flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .import-banner .icon{ font-size: 22px; flex-shrink:0; }
+  .import-banner .text{ flex:1; }
+  .import-banner .text h4{
+    font-family: var(--serif);
+    margin: 0 0 2px;
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+  .import-banner .text p{
+    margin: 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.4;
+  }
+  .import-banner .actions{ display:flex; flex-direction:column; gap:6px; }
+  .import-banner button{
+    border: none;
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .import-banner .btn-import-yes{ background: var(--maroon); color: #F4EEDF; }
+  .import-banner .btn-import-no{ background: transparent; color: var(--ink-soft); }
+  .import-banner.hidden{ display:none; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="app-header">
+    <div class="mark">
+      <h1>Songleaf</h1>
+    </div>
+    <div class="tagline">Your lyrics, always on hand</div>
+  </header>
+
+  <!-- LIBRARY VIEW -->
+  <div class="view" id="view-library">
+    <div class="import-banner hidden" id="import-banner">
+      <div class="icon">📖</div>
+      <div class="text">
+        <h4 id="import-banner-title">Add included songs?</h4>
+        <p id="import-banner-desc">Some songs are ready to import.</p>
+      </div>
+      <div class="actions">
+        <button class="btn-import-yes" id="btn-import-yes">Import all</button>
+        <button class="btn-import-no" id="btn-import-no">Not now</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search-input" type="text" placeholder="Search title, artist, lyrics…" />
+      </div>
+      <button class="btn-new" id="btn-add-new">+ New</button>
+    </div>
+    <div id="library-list"></div>
+  </div>
+
+  <!-- SCAN VIEW -->
+  <div class="view hidden" id="view-scan">
+    <div class="scan-drop" id="scan-drop">
+      <div class="icon">📷</div>
+      <h3>Scan a page</h3>
+      <p>Photograph or upload a lyric sheet and Songleaf will pull out the text.</p>
+      <div class="scan-buttons">
+        <label class="primary">Take photo
+          <input type="file" accept="image/*" capture="environment" id="file-camera">
+        </label>
+        <label class="secondary">Upload image
+          <input type="file" accept="image/*" id="file-upload">
+        </label>
+      </div>
+    </div>
+
+    <div id="scan-preview-wrap" style="display:none;">
+      <div class="scan-preview">
+        <img id="scan-preview-img" alt="Scanned page preview">
+      </div>
+      <div id="scan-progress-wrap" style="display:none;">
+        <div class="scan-progress"><div class="scan-progress-bar" id="scan-progress-bar"></div></div>
+        <div class="scan-status" id="scan-status">Reading the page…</div>
+      </div>
+      <div id="scan-error" class="scan-error" style="display:none;"></div>
+
+      <div id="scan-result" style="display:none;">
+        <div class="field">
+          <label for="scan-title">Title</label>
+          <input type="text" id="scan-title" placeholder="Song title">
+        </div>
+        <div class="field">
+          <label for="scan-artist">Artist / key (optional)</label>
+          <input type="text" id="scan-artist" placeholder="e.g. Key of G">
+        </div>
+        <div class="field">
+          <label for="scan-text">Extracted text</label>
+          <textarea id="scan-text" placeholder="Extracted lyrics will appear here — feel free to fix anything OCR missed."></textarea>
+        </div>
+        <div class="field" style="display:flex; gap:10px;">
+          <button class="btn-primary" id="btn-save-scan">Save to library</button>
+          <button class="btn-delete" id="btn-discard-scan">Discard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB BAR -->
+  <nav class="tabbar">
+    <button class="active" id="tab-library" data-tab="library">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Library
+    </button>
+    <button id="tab-scan" data-tab="scan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Scan
+    </button>
+  </nav>
+
+  <!-- VIEWER OVERLAY (read-only, formatted lyrics) -->
+  <div class="overlay hidden" id="viewer-overlay">
+    <div class="sheet">
+      <div class="sheet-header">
+        <div class="viewer-heading">
+          <h2 id="viewer-title">Song title</h2>
+          <div class="viewer-meta" id="viewer-meta"></div>
+        </div>
+        <button id="viewer-close">Close</button>
+      </div>
+      <div class="viewer-zoom-bar">
+        <button class="viewer-zoom-btn" id="viewer-zoom-out" aria-label="Zoom out">&minus;</button>
+        <span class="viewer-zoom-label" id="viewer-zoom-label">100%</span>
+        <button class="viewer-zoom-btn" id="viewer-zoom-in" aria-label="Zoom in">&plus;</button>
+        <button class="viewer-zoom-reset" id="viewer-zoom-reset">Reset</button>
+      </div>
+      <div class="sheet-body" id="viewer-body"></div>
+      <div class="sheet-footer">
+        <button class="btn-primary" id="btn-viewer-edit">Edit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDITOR OVERLAY -->
+  <div class="overlay hidden" id="editor-overlay">
+    <div class="sheet">
+      <div class="sheet-header">
+        <h2 id="editor-title">New lyric</h2>
+        <button id="editor-close">Cancel</button>
+      </div>
+      <div class="sheet-body">
+        <div class="field">
+          <label for="edit-title">Title</label>
+          <input type="text" id="edit-title" placeholder="Song title">
+        </div>
+        <div class="field">
+          <label for="edit-artist">Artist / key (optional)</label>
+          <input type="text" id="edit-artist" placeholder="e.g. Key of G">
+        </div>
+        <div class="field">
+          <label for="edit-tag">Category</label>
+          <input type="text" id="edit-tag" list="tag-options" placeholder="e.g. Worship, Hymn, Original">
+          <datalist id="tag-options">
+            <option value="Worship">
+            <option value="Hymn">
+            <option value="Praise">
+            <option value="Original">
+            <option value="Christmas">
+            <option value="Special">
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="edit-lyrics">Lyrics</label>
+          <textarea id="edit-lyrics" placeholder="Verse 1…"></textarea>
+        </div>
+      </div>
+      <div class="sheet-footer">
+        <button class="btn-delete" id="btn-delete-lyric" style="display:none;">Delete</button>
+        <button class="btn-primary" id="btn-save-lyric">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------- State ----------------
+  var lyrics = [];               // {id, title, artist, tag, lyrics, createdAt}
+  var currentTab = 'library';
+  var editingId = null;          // null = new lyric
+  var LOCAL_KEY = 'songleaf_lyrics_v1';
+  var titleMigrationDone = false;
+
+  function migrateNumberedTitles(){
+    var pattern = /^\d+\.\s*/;
+    lyrics.forEach(function(l){
+      if (pattern.test(l.title || '')){
+        var cleanTitle = l.title.replace(pattern, '').trim();
+        saveLyricRecord({ title: cleanTitle, artist: l.artist, tag: l.tag, lyrics: l.lyrics }, l.id);
+      }
+    });
+  }
+
+  // ---------------- Storage (local to this device) ----------------
+  function loadLocal(){
+    try{
+      var raw = localStorage.getItem(LOCAL_KEY);
+      lyrics = raw ? JSON.parse(raw) : [];
+    }catch(e){ lyrics = []; }
+    sortLyrics();
+    if (!titleMigrationDone){
+      titleMigrationDone = true;
+      migrateNumberedTitles();
+    }
+    renderLibrary();
+  }
+  function persistLocal(){
+    try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(lyrics)); }catch(e){}
+  }
+  function sortLyrics(){
+    lyrics.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+  }
+
+  function initStorage(){
+    loadLocal();
+  }
+
+  function saveLyricRecord(record, id){
+    // record: {title, artist, tag, lyrics}. Returns a Promise.
+    var now = Date.now();
+    if (id){
+      var idx = lyrics.findIndex(function(l){ return l.id === id; });
+      if (idx > -1){
+        lyrics[idx].title = record.title;
+        lyrics[idx].artist = record.artist;
+        lyrics[idx].tag = record.tag;
+        lyrics[idx].lyrics = record.lyrics;
+      }
+    } else {
+      lyrics.unshift({
+        id: 'l' + now + Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,6),
+        title: record.title, artist: record.artist, tag: record.tag,
+        lyrics: record.lyrics, createdAt: now
+      });
+    }
+    sortLyrics();
+    persistLocal();
+    renderLibrary();
+    return Promise.resolve();
+  }
+
+  function deleteLyricRecord(id){
+    lyrics = lyrics.filter(function(l){ return l.id !== id; });
+    persistLocal();
+    renderLibrary();
+  }
+
+  // ---------------- Rendering: library ----------------
+  var libraryListEl = document.getElementById('library-list');
+  var searchInput = document.getElementById('search-input');
+
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  // ---------------- Lyrics formatting (chords smaller, lyrics bigger) ----------------
+  var CHORD_UNIT = /^[A-G][#b]?(maj7|maj|min7|min|dim7|dim|aug|sus4|sus2|sus|add9|add2|m7|m|°)?[0-9]{0,2}(\/[A-G][#b]?)?$/;
+  var META_PREFIXES = ['intro:','intro ','outro:','outro ','capo','ending:','ending ','refrain:','coda:','bridge:','tag:','chorus:','interlude:','v1:','v2:'];
+
+  function isChordLine(line){
+    var tokens = line.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return false;
+    for (var i=0;i<tokens.length;i++){
+      var tok = tokens[i];
+      if (/^x[0-9]+$/i.test(tok)) continue;          // repeat marker, e.g. x2
+      if (/^\d+\.$/.test(tok)) continue;              // verse number, e.g. 1.
+      var parts = tok.split('-');
+      var allMatch = true;
+      for (var j=0;j<parts.length;j++){
+        var part = parts[j].replace(/^[\(\[]+|[\)\]]+$/g, '');
+        if (part === '' || !CHORD_UNIT.test(part)){ allMatch = false; break; }
+      }
+      if (!allMatch) return false;
+    }
+    return true;
+  }
+
+  function classifyLine(line){
+    var trimmed = line.trim();
+    if (!trimmed) return 'blank';
+    if (/^\[.*\]$/.test(trimmed)) return 'section';
+    if (/^\(.*\)$/.test(trimmed)) return 'meta';
+    var lower = trimmed.toLowerCase();
+    for (var i=0;i<META_PREFIXES.length;i++){
+      if (lower.indexOf(META_PREFIXES[i]) === 0) return 'meta';
+    }
+    if (isChordLine(trimmed)) return 'chord';
+    return 'lyric';
+  }
+
+  function renderFormattedLyrics(text){
+    var raw = (text || '');
+    if (!raw.trim()) return '<div class="lyric-empty">No lyrics yet — tap Edit to add them.</div>';
+    var lines = raw.split('\n');
+    var html = '';
+    lines.forEach(function(line){
+      var type = classifyLine(line);
+      if (type === 'blank'){
+        html += '<div class="lyric-line-blank"></div>';
+      } else {
+        html += '<div class="lyric-line-' + type + '">' + escapeHtml(line) + '</div>';
+      }
+    });
+    return html;
+  }
+
+  // ---------------- Viewer overlay (read-only) ----------------
+  var viewerOverlay = document.getElementById('viewer-overlay');
+  var viewerTitleEl = document.getElementById('viewer-title');
+  var viewerMetaEl = document.getElementById('viewer-meta');
+  var viewerBodyEl = document.getElementById('viewer-body');
+  var viewerEditBtn = document.getElementById('btn-viewer-edit');
+  var viewerCloseBtn = document.getElementById('viewer-close');
+  var viewingId = null;
+
+  // ---------------- Viewer zoom (buttons, pinch, ctrl+scroll) ----------------
+  var VIEWER_ZOOM_KEY = 'songleaf_viewer_zoom';
+  var VIEWER_ZOOM_MIN = 0.7;
+  var VIEWER_ZOOM_MAX = 2.6;
+  var viewerZoomOutBtn = document.getElementById('viewer-zoom-out');
+  var viewerZoomInBtn = document.getElementById('viewer-zoom-in');
+  var viewerZoomResetBtn = document.getElementById('viewer-zoom-reset');
+  var viewerZoomLabel = document.getElementById('viewer-zoom-label');
+  var viewerZoom = 1;
+  try {
+    var storedZoom = parseFloat(localStorage.getItem(VIEWER_ZOOM_KEY));
+    if (!isNaN(storedZoom) && storedZoom >= VIEWER_ZOOM_MIN && storedZoom <= VIEWER_ZOOM_MAX) viewerZoom = storedZoom;
+  } catch (e) {}
+
+  function clampZoom(z){
+    return Math.min(VIEWER_ZOOM_MAX, Math.max(VIEWER_ZOOM_MIN, z));
+  }
+  function applyViewerZoom(){
+    viewerBodyEl.style.setProperty('--vz', viewerZoom);
+    if (viewerZoomLabel) viewerZoomLabel.textContent = Math.round(viewerZoom * 100) + '%';
+    try { localStorage.setItem(VIEWER_ZOOM_KEY, String(viewerZoom)); } catch (e) {}
+  }
+  function setViewerZoom(z){
+    viewerZoom = clampZoom(z);
+    applyViewerZoom();
+  }
+  if (viewerZoomInBtn) viewerZoomInBtn.addEventListener('click', function(){ setViewerZoom(viewerZoom + 0.1); });
+  if (viewerZoomOutBtn) viewerZoomOutBtn.addEventListener('click', function(){ setViewerZoom(viewerZoom - 0.1); });
+  if (viewerZoomResetBtn) viewerZoomResetBtn.addEventListener('click', function(){ setViewerZoom(1); });
+
+  // Pinch-to-zoom (touch) on the lyric sheet
+  var pinchStartDist = null;
+  var pinchStartZoom = 1;
+  function touchDist(touches){
+    var dx = touches[0].clientX - touches[1].clientX;
+    var dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  viewerBodyEl.addEventListener('touchstart', function(e){
+    if (e.touches.length === 2){
+      pinchStartDist = touchDist(e.touches);
+      pinchStartZoom = viewerZoom;
+    }
+  }, { passive: true });
+  viewerBodyEl.addEventListener('touchmove', function(e){
+    if (e.touches.length === 2 && pinchStartDist){
+      e.preventDefault();
+      var newDist = touchDist(e.touches);
+      var scale = newDist / pinchStartDist;
+      setViewerZoom(pinchStartZoom * scale);
+    }
+  }, { passive: false });
+  viewerBodyEl.addEventListener('touchend', function(e){
+    if (e.touches.length < 2) pinchStartDist = null;
+  });
+
+  // Ctrl/Cmd + scroll wheel zoom (trackpad pinch on desktop browsers)
+  viewerBodyEl.addEventListener('wheel', function(e){
+    if (e.ctrlKey || e.metaKey){
+      e.preventDefault();
+      setViewerZoom(viewerZoom - e.deltaY * 0.01);
+    }
+  }, { passive: false });
+
+  function openViewer(id){
+    var l = lyrics.find(function(x){ return x.id === id; });
+    if (!l) return;
+    viewingId = id;
+    viewerTitleEl.textContent = l.title || 'Untitled';
+    var metaBits = [];
+    if (l.artist) metaBits.push(l.artist);
+    if (l.tag) metaBits.push(l.tag);
+    viewerMetaEl.textContent = metaBits.join(' · ');
+    viewerBodyEl.innerHTML = renderFormattedLyrics(l.lyrics);
+    applyViewerZoom();
+    viewerOverlay.classList.remove('hidden');
+  }
+  function closeViewer(){
+    viewerOverlay.classList.add('hidden');
+    viewingId = null;
+  }
+  viewerCloseBtn.addEventListener('click', closeViewer);
+  viewerOverlay.addEventListener('click', function(e){ if (e.target === viewerOverlay) closeViewer(); });
+  viewerEditBtn.addEventListener('click', function(){
+    var id = viewingId;
+    closeViewer();
+    openEditor(id);
+  });
+
+  function renderLibrary(){
+    if (typeof maybeShowImportBanner === 'function') maybeShowImportBanner();
+    var q = (searchInput.value || '').trim().toLowerCase();
+    var filtered = lyrics.filter(function(l){
+      if (!q) return true;
+      return (l.title||'').toLowerCase().indexOf(q) > -1 ||
+             (l.artist||'').toLowerCase().indexOf(q) > -1 ||
+             (l.tag||'').toLowerCase().indexOf(q) > -1 ||
+             (l.lyrics||'').toLowerCase().indexOf(q) > -1;
+    });
+
+    if (lyrics.length === 0){
+      libraryListEl.innerHTML =
+        '<div class="empty-state">' +
+          '<div class="icon">🎼</div>' +
+          '<h3>Your songbook is empty</h3>' +
+          '<p>Add a lyric by hand, or scan a printed sheet and Songleaf will read it for you.</p>' +
+          '<button class="btn-new" id="empty-add-btn">+ Add your first lyric</button>' +
+        '</div>';
+      var b = document.getElementById('empty-add-btn');
+      if (b) b.addEventListener('click', function(){ openEditor(null); });
+      return;
+    }
+
+    if (filtered.length === 0){
+      libraryListEl.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><h3>No matches</h3><p>Try a different search term.</p></div>';
+      return;
+    }
+
+    libraryListEl.innerHTML = filtered.map(function(l){
+      var snippet = (l.lyrics||'').split('\n').find(function(line){ return line.trim().length>0; }) || '';
+      return (
+        '<div class="lyric-card" data-id="' + l.id + '">' +
+          '<div class="row-top">' +
+            '<h3>' + (escapeHtml(l.title) || 'Untitled') + '</h3>' +
+            (l.tag ? '<span class="tag">' + escapeHtml(l.tag) + '</span>' : '') +
+          '</div>' +
+          (l.artist ? '<div class="artist">' + escapeHtml(l.artist) + '</div>' : '') +
+          (snippet ? '<div class="snippet">' + escapeHtml(snippet) + '</div>' : '') +
+        '</div>'
+      );
+    }).join('');
+
+    Array.prototype.forEach.call(libraryListEl.querySelectorAll('.lyric-card'), function(card){
+      card.addEventListener('click', function(){
+        openViewer(card.getAttribute('data-id'));
+      });
+    });
+  }
+
+  searchInput.addEventListener('input', renderLibrary);
+
+  // ---------------- Editor overlay ----------------
+  var overlay = document.getElementById('editor-overlay');
+  var editTitleInput = document.getElementById('edit-title');
+  var editArtistInput = document.getElementById('edit-artist');
+  var editTagInput = document.getElementById('edit-tag');
+  var editLyricsInput = document.getElementById('edit-lyrics');
+  var editorHeading = document.getElementById('editor-title');
+  var deleteBtn = document.getElementById('btn-delete-lyric');
+
+  function openEditor(id){
+    editingId = id;
+    if (id){
+      var l = lyrics.find(function(x){ return x.id === id; });
+      if (!l) return;
+      editorHeading.textContent = 'Edit lyric';
+      editTitleInput.value = l.title || '';
+      editArtistInput.value = l.artist || '';
+      editTagInput.value = l.tag || '';
+      editLyricsInput.value = l.lyrics || '';
+      deleteBtn.style.display = 'inline-block';
+    } else {
+      editorHeading.textContent = 'New lyric';
+      editTitleInput.value = '';
+      editArtistInput.value = '';
+      editTagInput.value = '';
+      editLyricsInput.value = '';
+      deleteBtn.style.display = 'none';
+    }
+    overlay.classList.remove('hidden');
+    setTimeout(function(){ editTitleInput.focus(); }, 50);
+  }
+  function closeEditor(){
+    overlay.classList.add('hidden');
+    editingId = null;
+  }
+
+  document.getElementById('editor-close').addEventListener('click', closeEditor);
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) closeEditor(); });
+
+  document.getElementById('btn-save-lyric').addEventListener('click', function(){
+    var title = editTitleInput.value.trim();
+    if (!title){ showToast('Give it a title first'); editTitleInput.focus(); return; }
+    saveLyricRecord({
+      title: title,
+      artist: editArtistInput.value.trim(),
+      tag: editTagInput.value.trim(),
+      lyrics: editLyricsInput.value
+    }, editingId);
+    showToast('Saved to your songbook');
+    closeEditor();
+  });
+
+  deleteBtn.addEventListener('click', function(){
+    if (!editingId) return;
+    deleteLyricRecord(editingId);
+    showToast('Removed');
+    closeEditor();
+  });
+
+  document.getElementById('btn-add-new').addEventListener('click', function(){ openEditor(null); });
+
+  // ---------------- Tabs ----------------
+  var viewLibrary = document.getElementById('view-library');
+  var viewScan = document.getElementById('view-scan');
+  var tabLibrary = document.getElementById('tab-library');
+  var tabScan = document.getElementById('tab-scan');
+
+  function switchTab(tab){
+    currentTab = tab;
+    if (tab === 'library'){
+      viewLibrary.classList.remove('hidden');
+      viewScan.classList.add('hidden');
+      tabLibrary.classList.add('active');
+      tabScan.classList.remove('active');
+    } else {
+      viewScan.classList.remove('hidden');
+      viewLibrary.classList.add('hidden');
+      tabScan.classList.add('active');
+      tabLibrary.classList.remove('active');
+    }
+  }
+  tabLibrary.addEventListener('click', function(){ switchTab('library'); });
+  tabScan.addEventListener('click', function(){ switchTab('scan'); });
+
+  // ---------------- Scan (on-device OCR, no server dependency) ----------------
+  var fileCamera = document.getElementById('file-camera');
+  var fileUpload = document.getElementById('file-upload');
+  var previewWrap = document.getElementById('scan-preview-wrap');
+  var previewImg = document.getElementById('scan-preview-img');
+  var progressWrap = document.getElementById('scan-progress-wrap');
+  var progressBar = document.getElementById('scan-progress-bar');
+  var scanStatus = document.getElementById('scan-status');
+  var scanErrorEl = document.getElementById('scan-error');
+  var scanResult = document.getElementById('scan-result');
+  var scanTitleInput = document.getElementById('scan-title');
+  var scanArtistInput = document.getElementById('scan-artist');
+  var scanTextArea = document.getElementById('scan-text');
+
+  function resetScan(){
+    previewWrap.style.display = 'none';
+    progressWrap.style.display = 'none';
+    scanErrorEl.style.display = 'none';
+    scanResult.style.display = 'none';
+    progressBar.classList.remove('indeterminate');
+    progressBar.style.width = '0%';
+    fileCamera.value = '';
+    fileUpload.value = '';
+  }
+
+  function handleFile(file){
+    if (!file) return;
+    resetScan();
+    previewWrap.style.display = 'block';
+    var reader = new FileReader();
+    reader.onload = function(e){ previewImg.src = e.target.result; };
+    reader.readAsDataURL(file);
+    runOcr(file);
+  }
+
+  fileCamera.addEventListener('change', function(e){ handleFile(e.target.files[0]); });
+  fileUpload.addEventListener('change', function(e){ handleFile(e.target.files[0]); });
+
+  function runOcr(file){
+    if (typeof Tesseract === 'undefined'){
+      scanErrorEl.textContent = "The text reader didn't load — check your connection and try again, or type the lyrics in by hand below.";
+      scanErrorEl.style.display = 'block';
+      scanResult.style.display = 'block';
+      scanTextArea.value = '';
+      return;
+    }
+    progressWrap.style.display = 'block';
+    scanStatus.textContent = 'Warming up the reader…';
+    progressBar.style.width = '3%';
+
+    Tesseract.recognize(file, 'eng', {
+      logger: function(m){
+        if (m.status === 'recognizing text' && typeof m.progress === 'number'){
+          progressBar.style.width = Math.round(m.progress * 100) + '%';
+          scanStatus.textContent = 'Reading the page… ' + Math.round(m.progress * 100) + '%';
+        } else if (m.status){
+          scanStatus.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1) + '…';
+        }
+      }
+    }).then(function(result){
+      progressWrap.style.display = 'none';
+      var text = (result && result.data && result.data.text) ? result.data.text.trim() : '';
+      scanResult.style.display = 'block';
+      scanTextArea.value = text;
+      if (!text){
+        scanErrorEl.textContent = "Couldn't find readable text in that photo — try a clearer, well-lit shot, or type the lyrics in below.";
+        scanErrorEl.style.display = 'block';
+      }
+      setTimeout(function(){ scanTitleInput.focus(); }, 50);
+    }).catch(function(err){
+      console.error(err);
+      progressWrap.style.display = 'none';
+      scanErrorEl.textContent = "Something went wrong reading that photo. You can type the lyrics in below instead.";
+      scanErrorEl.style.display = 'block';
+      scanResult.style.display = 'block';
+      scanTextArea.value = '';
+    });
+  }
+
+  document.getElementById('btn-save-scan').addEventListener('click', function(){
+    var title = scanTitleInput.value.trim();
+    if (!title){ showToast('Give it a title first'); scanTitleInput.focus(); return; }
+    saveLyricRecord({
+      title: title,
+      artist: scanArtistInput.value.trim(),
+      tag: '',
+      lyrics: scanTextArea.value
+    }, null);
+    showToast('Saved to your songbook');
+    resetScan();
+    scanTitleInput.value = '';
+    scanArtistInput.value = '';
+    switchTab('library');
+  });
+
+  document.getElementById('btn-discard-scan').addEventListener('click', function(){
+    resetScan();
+  });
+
+  // ---------------- Toast ----------------
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+
+  // ---------------- Seed import: BCLP02/08 Baptism songbook ----------------
+  var IMPORT_DISMISS_KEY = 'songleaf_import_bclp0208_dismissed';
+  var SEED_TAG = 'Baptism';
+  var SEED_SONGS = [
+    {
+      title: "One Family",
+      artist: "",
+      tag: "Worship",
+      lyrics: "Intro: G-Gbm-Bm-C-A-A7\n\n" +
+        "[Verse 1]\n" +
+        "D                Bm\n" +
+        "We are a group of Christian people\n" +
+        "Em              A\n" +
+        "Sharing the love of our God our Saviour\n" +
+        "Gm\n" +
+        "Praising Him and giving Him thanks\n" +
+        "E              A7\n" +
+        "For the trials and the blessings\n\n" +
+        "D                Bm\n" +
+        "As we grow from day to day\n" +
+        "Em        A\n" +
+        "He is there to guide our way\n" +
+        "G       Gm      Gbm\n" +
+        "Anything we do and anywhere we go\n" +
+        "Em           A         D-Am\n" +
+        "We are our brother's keeper we're happy too\n\n" +
+        "[Chorus 1]\n" +
+        "G\n" +
+        "The Lord our God is\n" +
+        "Gbm         B7\n" +
+        "The center of our businesses\n" +
+        "Em                A\n" +
+        "The Lord our God is the giver of our\n" +
+        "Am-D7\n" +
+        "Professions too\n" +
+        "G                Gm\n" +
+        "Let's join our hands in thanking Him\n" +
+        "Gbm          B7\n" +
+        "And praising His name\n" +
+        "Em          G-A        D Em-A\n" +
+        "For we are one family, the BCBP\n\n" +
+        "[Verse 2]\n" +
+        "D           Bm\n" +
+        "Let us spread the good news\n" +
+        "Em          A\n" +
+        "To the market places\n" +
+        "Em                A\n" +
+        "Let us invite our partners in the businesses\n" +
+        "G\n" +
+        "The Lord our God our Saviour\n" +
+        "Gbm         B7\n" +
+        "Is the center of our lives\n" +
+        "Em              A        D-Am-D7\n" +
+        "So, let us start the day of work with Christ\n\n" +
+        "[Chorus 2]\n" +
+        "G\n" +
+        "The Lord our God is\n" +
+        "Gbm         B7\n" +
+        "The center of our businesses\n" +
+        "Em                A\n" +
+        "The Lord our God is the giver of\n" +
+        "Am-D7\n" +
+        "Our professions too\n" +
+        "G                 Gm\n" +
+        "Let's sing and praise and feel the spirit\n" +
+        "Gbm         B7\n" +
+        "Of Christian unity\n" +
+        "Em      Gbm    G-A          D(Am-D7)B7\n" +
+        "For we are one family, the BCBP\n\n" +
+        "(Repeat Chorus 2)\n\n" +
+        "Em    Gbm    G-A      D-B7\n" +
+        "For we are one family, the BCBP\n" +
+        "Em    Gbm    G-A      D-Gm-D  Gbm Em\n" +
+        "For we are one family, the BCBP          A-D"
+    },
+    {
+      title: "Little By Little",
+      artist: "",
+      tag: "Worship",
+      lyrics: "[Verse 1]\n" +
+        "G\n" +
+        "Little by little everyday,\n" +
+        "C\n" +
+        "Little by little every way\n" +
+        "G                        D\n" +
+        "Jesus is changing me\n" +
+        "G\n" +
+        "Since I made a turn about face\n" +
+        "C\n" +
+        "I've been growing in his grace\n" +
+        "G          D            D C\n" +
+        "Jesus is changing me.\n\n" +
+        "[Refrain]\n" +
+        "G                                  C\n" +
+        "He's changing me, my blessed Savior\n" +
+        "         C G                        D\n" +
+        "I'm not the same person that I used to be\n" +
+        "              G - G7\n" +
+        "Though I've been slow growing\n" +
+        "    C          Am\n" +
+        "But there's a knowing\n" +
+        "          G              D            G\n" +
+        "That someday perfect I will be.\n\n" +
+        "(Repeat verse 1, counterpoint with refrain)"
+    },
+    {
+      title: "We Are An Offering",
+      artist: "",
+      tag: "Worship",
+      lyrics: "[Verse 1]\n" +
+        "              D-Em                Dsus-D7\n" +
+        "We lift our voices, we lift our hands\n" +
+        "             G      A        F#m\n" +
+        "We lift our lives up to You (they are Yours)\n" +
+        "      Bm           Em  A7sus-A7\n" +
+        "We are an offering\n\n" +
+        "[Verse 2]\n" +
+        "                D        Em            Dsus-D7\n" +
+        "Lord, use our voices, Lord use our hands\n" +
+        "            G    A           F#m\n" +
+        "Lord, use our lives, we are Yours\n" +
+        "      Bm           Em  A7sus-A7\n" +
+        "We are an offering\n\n" +
+        "[Chorus]\n" +
+        "        F#m        Bm   G                Em\n" +
+        "All that we have, all that we are,\n" +
+        "         F#      Bm             G       D\n" +
+        "All that we hope to be we give to You\n" +
+        "   G       Asus-A7\n" +
+        "We give to You\n\n" +
+        "(Repeat verse 1)"
+    },
+    {
+      title: "Lord I Lift Your Name On High",
+      artist: "Rick Founds",
+      tag: "Worship",
+      lyrics: "[Verse]\n" +
+        "G          C              D    C\n" +
+        "Lord, I lift Your name on high\n" +
+        "G          C              D   Csus2\n" +
+        "Lord, I love to sing Your praises\n" +
+        "G          C              D    C\n" +
+        "I'm so glad You're in my life\n" +
+        "G          C              Dsus4 D C D\n" +
+        "I'm so glad You came to save us\n\n" +
+        "[Chorus]\n" +
+        "G              C              D\n" +
+        "You came from heaven to earth\n" +
+        "   C        G\n" +
+        "To show the way\n" +
+        "          C              D\n" +
+        "From the earth to the cross\n" +
+        "   C        G\n" +
+        "My debt to pay\n" +
+        "        Am7            D\n" +
+        "From the cross to the grave\n" +
+        "        Em             Am7\n" +
+        "From the grave to the sky\n" +
+        "    Dsus4    D        G C D C\n" +
+        "Lord, I lift Your name on high"
+    },
+    {
+      title: "One Desire",
+      artist: "Hillsong Worship",
+      tag: "Worship",
+      lyrics: "Key: E   BPM: 77   Time: 4/4\n\n" +
+        "[Intro]\n" +
+        "E/G#   A   E/G#   A\n\n" +
+        "[Verse 1]\n" +
+        "E/G#\nYou gave it all for me\n" +
+        "A\nMy soul desire, my everything\n" +
+        "E/G#            A\nAll I am is devoted to You\n\n" +
+        "[Verse 2]\n" +
+        "E/G#\nHow could I fail to see\n" +
+        "A\nYou are the love that rescued me\n" +
+        "E/G#            A\nAll I am is devoted to You\n\n" +
+        "[Pre-chorus]\n" +
+        "B                    C#m\n" +
+        "And oh, how could I not be moved?\n" +
+        "A\nLord here with You\n" +
+        "E\nSo have Your way in me\n" +
+        "B                    C#m\n" +
+        "Cause Lord there is just one thing\n" +
+        "A\nThat I will seek\n\n" +
+        "[Chorus]\n" +
+        "E                B\n" +
+        "This is my cry my one desire\n" +
+        "B/C         C#m\n" +
+        "To be where You are Lord\n" +
+        "A\nNow and forever\n" +
+        "E\nMore than a song,\n" +
+        "D            F#m\n" +
+        "My one desire is to be with You\n" +
+        "C#m   B\nIs to be with You\n\n" +
+        "[Interlude]\n" +
+        "E/G#   A   E/G#   A\nJesus\n\n" +
+        "[Verse 2]\n\n" +
+        "[Pre-chorus]\n\n" +
+        "[Chorus]\n\n" +
+        "[Instrumental]\n" +
+        "E/G#   A   E/G#   A\n\n" +
+        "[Bridge]\n" +
+        "E        F#m7   E/G#   A\n" +
+        "The one thing, the one thing,\n" +
+        "    C#m   B      E/G#   A\n" +
+        "That I ask is to be with You"
+    }
+,
+    {
+      title: "O Salutaris Hostia",
+      artist: "Traditional Latin Hymn",
+      tag: SEED_TAG,
+      lyrics: "Intro: E\n\n" +
+        "E              A-E                     B7      A-B7-E\n" +
+        "O Salutaris hostia, Quac caeli pandis osti-um\n" +
+        "E      E7        A-B7   E               B-E\n" +
+        "Bella premunt hostilia, Da robur, fer auxilium\n" +
+        "E              A-E                     B7      A-B7-E\n" +
+        "Uni trinoque Domino Sit sempiterna glori-a,\n" +
+        "E      E7    A   B7     E                B-E\n" +
+        "Qui vitam sine termino, Nobis donet in patria\n" +
+        "A-E\n" +
+        "Amen"
+    },
+    {
+      title: "Heart Of Worship",
+      artist: "Matt Redman",
+      tag: SEED_TAG,
+      lyrics: "Capo 1\nIntro: D\n\n" +
+        "[Verse 1]\n" +
+        "D                          A                      Em            Asus-A\n" +
+        "When the music fades & all is stripped away & I simply come\n" +
+        "D                A                          Em\n" +
+        "Longing just to bring something that's of worth that will bless your\n" +
+        "Asus-A\n" +
+        "heart\n\n" +
+        "[Pre-chorus]\n" +
+        "Em                  D                A\n" +
+        "I'll bring you more than a song for a song in itself\n" +
+        "Em            D              A\n" +
+        "is not what you have required\n" +
+        "Em              D                    A\n" +
+        "You search much deeper within through the way things appear\n" +
+        "Em          D       A\n" +
+        "You're looking into my heart\n\n" +
+        "[Chorus]\n" +
+        "D                    A                  Em\n" +
+        "I'm coming back to the heart of worship & it's all about You\n" +
+        "D      G   A                  Em                D\n" +
+        "I'm sorry Lord for the thing I've made it when it's all about You\n\n" +
+        "[Verse 2]\n" +
+        "                  A                        Em\n" +
+        "It's all about You, Jesus\n" +
+        "D                            A                       Em         Asus-A\n" +
+        "King of endless worth, no one could express how much you deserve\n" +
+        "D                     A                Em          Asus-A\n" +
+        "Though I'm weak & poor, all I have is Yours, every single breath\n\n" +
+        "(Repeat Pre-chorus & Chorus)"
+    },
+    {
+      title: "Lord, Here I Am",
+      artist: "Hymnal #224",
+      tag: SEED_TAG,
+      lyrics: "Dm       Am     Bb          F\n" +
+        "Lord, here I am to answer your call\n" +
+        "Dm       Am     Bb              C\n" +
+        "Lord here I am to serve and love You\n" +
+        "Dm       Am     Bb                    C\n" +
+        "I have left everything just to follow You\n" +
+        "Dm       Am     Bb          F\n" +
+        "Here is my heart, here is my mind\n" +
+        "Dm       Am     Bb               F\n" +
+        "Here is my soul, here is my whole self\n" +
+        "Bb            C       F\n" +
+        "I am for You and You alone.\n\n" +
+        "(Repeat)"
+    },
+    {
+      title: "I Give You My Heart",
+      artist: "Reuben Morgan / Hillsong",
+      tag: SEED_TAG,
+      lyrics: "Intro: C - Dsus - Bm - Em, C - Dsus - Bm - Dsus\n\n" +
+        "[Verse]\n" +
+        "G                Em              C-G   D\n" +
+        "This is my desire to honor You\n" +
+        "Em-D          G                        F-C-D\n" +
+        "Lord, with all my heart, I worship You\n" +
+        "G              Em            C   G   D\n" +
+        "All I have within me, I give You praise\n" +
+        "Em-D        G                  F-C-D\n" +
+        "All that I adore is in You\n\n" +
+        "[Chorus]\n" +
+        "G                 D\n" +
+        "Lord, I give You my heart\n" +
+        "Am7        Dsus     D      G\n" +
+        "I give You my soul, I live for You alone\n" +
+        "G                                      D\n" +
+        "Every breath that I take, every moment I'm awake\n" +
+        "Am7        Dsus  D    G\n" +
+        "Lord, have Your way in me"
+    },
+    {
+      title: "Lord Jesus, We Enthrone You",
+      artist: "Hymnal #222",
+      tag: SEED_TAG,
+      lyrics: "G              Em\n" +
+        "Lord Jesus we enthrone You.\n" +
+        "C                    G\n" +
+        "We proclaim You are King.\n" +
+        "Em                   Bm\n" +
+        "Standing here in the midst of us.\n" +
+        "C            Am                Dsus-D\n" +
+        "We raise You up with our praise.\n" +
+        "C          D       G   Em\n" +
+        "And as we worship build a throne\n" +
+        "C          D       G   Em\n" +
+        "And as we worship build a throne.\n" +
+        "C          D       G  B  Em\n" +
+        "And as we worship build a throne\n" +
+        "         Am       D        G\n" +
+        "Come Lord Jesus and take Your place.\n\n" +
+        "(Repeat)"
+    },
+    {
+      title: "Be Exalted, O God",
+      artist: "Hymnal #44",
+      tag: SEED_TAG,
+      lyrics: "Capo 3\nIntro: G-C-G-C\n\n" +
+        "        G     C      G\n" +
+        "1. I will give thanks to Thee,\n" +
+        "      G     C          G   Bm\n" +
+        "O Lord among the people.\n" +
+        "      Em            D\n" +
+        "I will sing praises to Thee\n" +
+        "      C            C  G  Am7-C\n" +
+        "Among the nations.\n" +
+        "     G      C       G\n" +
+        "For Thy steadfast love is great,\n" +
+        "      G      C      G\n" +
+        "Is great to the heavens\n" +
+        "   Bm      Em\n" +
+        "And Thy faithful-ness,\n" +
+        "        A              D    D7 Bm7\n" +
+        "Thy faithfulness to the clouds.\n\n" +
+        "Refrain:\n" +
+        "Am7   D  G                D AD\n" +
+        "Be exalted, O God, above the heavens.\n" +
+        "        Am7   D        A    G  G#° Am7\n" +
+        "Let Thy glory be over all the earth.\n" +
+        "Am   D G                     D AD\n" +
+        "Be exalted, O God, above the heavens.\n" +
+        "        Am7   D        G   C G C\n" +
+        "Let Thy glory be over all the earth.\n\n" +
+        "(Repeat verse & refrain except last line)\n\n" +
+        "Ending:\n" +
+        "      C  E7  Am  D\n" +
+        "Let Thy glory,\n" +
+        "      G  B  Em\n" +
+        "Let Thy glory,\n" +
+        "      Am7  D    D7  G  C G\n" +
+        "Let Thy glory be over all the earth."
+    },
+    {
+      title: "Hosanna",
+      artist: "Hillsong Worship (Brooke Fraser)",
+      tag: SEED_TAG,
+      lyrics: "[Intro]\nC#m  E  F#m7  G#m7  x2\n\n" +
+        "[Verse 1]\n" +
+        "E\nI see the King of glory\n" +
+        "C#m\nComing on the clouds with fire\n" +
+        "              F#m                    B\n" +
+        "The whole earth shakes, the whole earth shakes\n" +
+        "E\nI see His love and mercy\n" +
+        "C#m\nWashing over all our sin\n" +
+        "           F#m               B\n" +
+        "The people sing, the people sing\n\n" +
+        "[Chorus]\n" +
+        "      E/G#  A          B    C#m\n" +
+        "Ho - sanna, Ho - san - na\n" +
+        "   A              C#m B\n" +
+        "Hosanna in the Highest\n" +
+        "      E/G#  A          B    C#m\n" +
+        "Ho - sanna, Ho - san - na\n" +
+        "   A            B     C#m\n" +
+        "Hosanna in the High - est\n\n" +
+        "[Verse 2]\n" +
+        "E\nI see a generation\n" +
+        "C#m\nRising up to take their place\n" +
+        "              F#m                B\n" +
+        "With selfless faith, with selfless faith\n" +
+        "E\nI see a near revival\n" +
+        "C#m\nStirring as we pray and seek\n" +
+        "            F#m               B\n" +
+        "We're on our knees, we're on our knees\n\n" +
+        "[Chorus]"
+    },
+    {
+      title: "What A Beautiful Name",
+      artist: "Hillsong Worship",
+      tag: SEED_TAG,
+      lyrics: "[Verse 1]\n" +
+        "D\nYou were the Word at the beginning\n" +
+        "        G         Bm        A\n" +
+        "One With God the Lord Most High\n" +
+        "Bm                    A/C#   D\n" +
+        "Your hidden glory in creation\n" +
+        "   G         Bm       A\n" +
+        "Now revealed in You Our Christ\n\n" +
+        "[Chorus 1]\n" +
+        "                     D                                        A\n" +
+        "What a beautiful Name it is, what a beautiful Name it is\n" +
+        "                Bm   A      G\n" +
+        "The Name of Jesus Christ my King\n" +
+        "                     D/F#                            A\n" +
+        "What a beautiful Name it is, nothing compares to this\n" +
+        "                     Bm     A       G\n" +
+        "What a beautiful Name it is, the Name of Jesus\n\n" +
+        "[Verse 2]\n" +
+        "D\nYou didn't want heaven without us\n" +
+        "        G                Bm      A\n" +
+        "So Jesus You brought heaven down\n" +
+        "Bm                    A/C#      D\n" +
+        "My sin was great, Your love was greater\n" +
+        "        G     Bm      A\n" +
+        "What could separate us now\n\n" +
+        "[Chorus 2]\n" +
+        "                     D                                            A\n" +
+        "What a wonderful Name it is, what a wonderful Name it is\n" +
+        "                Bm   A      G\n" +
+        "The Name of Jesus Christ my King\n" +
+        "                     D/F#                            A\n" +
+        "What a wonderful Name it is, nothing compares to this\n" +
+        "                     Bm     A       G\n" +
+        "What a wonderful Name it is, the Name of Jesus\n" +
+        "                     Bm     A       G\n" +
+        "What a wonderful Name it is, the Name of Jesus"
+    },
+    {
+      title: "How Great Is Our God",
+      artist: "Chris Tomlin",
+      tag: SEED_TAG,
+      lyrics: "Capo 2\nIntro: G - Em - C - D\n\n" +
+        "[Verse 1]\n" +
+        "      G                          Em\n" +
+        "The splendor of a king, clothed in majesty\n" +
+        "        C\n" +
+        "Let all the earth rejoice, all the earth rejoice\n" +
+        "        G                        Em\n" +
+        "He wraps Himself in light, and darkness tries to hide\n" +
+        "        C\n" +
+        "And trembles at His voice, trembles at His voice\n\n" +
+        "[Chorus]\n" +
+        "       G\nHow great is our God, sing with me,\n" +
+        "     Em\nHow great is our God, and all will see,\n" +
+        "     C            D           G\n" +
+        "How great, how great is our God\n\n" +
+        "[Verse 2]\n" +
+        "      G                            Em\n" +
+        "Age to age He stands, and time is in His hands\n" +
+        "     C\nBeginning and the end, beginning and the end\n" +
+        "        G                             Em\n" +
+        "The Godhead, three in one: Father, Spirit, Son,\n" +
+        "      C\nThe Lion and the Lamb, the Lion and the Lamb\n\n" +
+        "[Repeat Chorus]"
+    },
+    {
+      title: "Ascribe Greatness",
+      artist: "Hymnal #37",
+      tag: SEED_TAG,
+      lyrics: "G     Bm            C            Am\n" +
+        "Ascribe greatness to our God, the Rock,\n" +
+        "              G        C         D\n" +
+        "His work is perfect and all His ways are just. (2x)\n\n" +
+        "G      Bm             C          D\n" +
+        "A God of faithfulness and without injustice\n" +
+        "C       D       G  D\n" +
+        "Good and upright is He.\n" +
+        "G      Bm             C          D\n" +
+        "A God of faithfulness and without injustice\n" +
+        "C       D      G\n" +
+        "Good and upright is He."
+    },
+    {
+      title: "As The Deer",
+      artist: "Hymnal #36",
+      tag: SEED_TAG,
+      lyrics: "D      F#m/C#      Bm7     Bm/A\n" +
+        "As the deer panteth for the water\n" +
+        "          G           A       D  A/D  G/D\n" +
+        "So my soul longeth after Thee.\n" +
+        "D  F#m/C#         Bm7     Bm/A\n" +
+        "You alone are my heart's desire\n" +
+        "        G  Em7   Asus A  D   A/C#\n" +
+        "And I long   to worship Thee.\n" +
+        "Bm  Bm/A          G      A2/G  D/F#\n" +
+        "You alone are my strength, my shield,\n" +
+        "Bm  Em  Em/D            Em/C#    F#sus F#\n" +
+        "To you a-lone may my spi-rit yield,\n" +
+        " D  F#/C#         Bm     Bm/A\n" +
+        "You a-lone are my heart's desire\n" +
+        "       G  Em7 Asus  A7   D\n" +
+        "And I long to wor - ship Thee."
+    },
+    {
+      title: "Come Holy Spirit",
+      artist: "",
+      tag: SEED_TAG,
+      lyrics: "Intro: D A D\n\n" +
+        "[Chorus]\n" +
+        "D                        A\nCome, Holy Spirit, we need You\n" +
+        "Em             A          D\nCome, Holy Spirit, we pray\n" +
+        "D7                    G    Gm\nCome with Your strength and Your power\n" +
+        "D           A          D\nCome in Your own gentle way\n\n" +
+        "[Verse 1]\n" +
+        "D                       A\nCome as a rest to the weary\n" +
+        "Em             A          D\nCome as a balm to the sore\n" +
+        "D7                     G   Gm\nCome Lord as strength to my weakness\n" +
+        "D          A         D\nFill me with joy evermore    [Chorus]\n\n" +
+        "[Verse 2]\n" +
+        "D                        A\nCome like a spring in the desert\n" +
+        "Em             A            D\nCome to the withered of soul\n" +
+        "D7                    G    Gm\nLord let Your sweet healing power\n" +
+        "D          A          D\nTouch me and make me whole    [Chorus]"
+    },
+    {
+      title: "Oceans (Where Feet May Fail)",
+      artist: "Hillsong United",
+      tag: SEED_TAG,
+      lyrics: "(Capo 2)\nIntro: F G-C G F\n\n" +
+        "V1:\n" +
+        "F                    G                Am\n" +
+        "You call me out upon the waters\n" +
+        "        G                       F\n" +
+        "The great unknown where feet may fail\n" +
+        "              G-Am          G                F\n" +
+        "And there I find You in the mystery\n" +
+        "       G                        F\n" +
+        "In oceans deep my faith will stand\n\n" +
+        "CHORUS:\n" +
+        "F           C              G\nAnd I will call upon Your name\n" +
+        "F           C              G\nAnd keep my eyes above the waves\n" +
+        "             F\nWhen oceans rise\n" +
+        "     C                   G\nMy soul will rest in Your embrace\n" +
+        "                   Am C G F\nFor I am Yours, You are mine\n\n" +
+        "V2:\n" +
+        "F                          G-Am\nYour grace abounds in deepest waters\n" +
+        "         G                        F\nYour sovereign hand will be my guide\n" +
+        "              G-Am\nWhere feet may fail & fear surrounds me\n" +
+        "      G                        Dm\nYou've never failed & You won't start now\n" +
+        "(repeat Chorus)\n\n" +
+        "Bridge:\n" +
+        "Am\nSpirit lead me\n" +
+        "         F\nwhere my trust\nis without borders\n" +
+        "G\nLet me walk upon\nthe waters\n" +
+        "        Dm\nWherever You would\ncall me\n" +
+        "F\nTake me deeper than\n" +
+        "C\nmy feet could ever wander\n" +
+        "        G\nAnd my faith will be\nmade stronger\n" +
+        "      Dm\nIn the presence of\nmy Savior"
+    },
+    {
+      title: "Create In Me",
+      artist: "Hymnal #71",
+      tag: SEED_TAG,
+      lyrics: "Capo 2\nIntro: D - A - G - A\n\n" +
+        "Refrain:\n" +
+        "D           A          G  A\nCreate in me a clean heart,\n" +
+        "        D            A     G    A\nPut a new and right Spirit within me\n" +
+        "      F#m     Bm            G   Em\nCast me not   away from Your presence\n" +
+        "          C     Em7     Am-G\nAnd take not your   Holy\n" +
+        "C  Em7  G     A  C\nSpirit  from me.\n\n" +
+        "Ending:\n" +
+        "D          A       G  D A D\nCreate in me a clean heart.\n\n" +
+        "1.  D          A          G        A\n" +
+        "    Have mercy on me, O God in your goodness.\n" +
+        "    D          A         G            A\n" +
+        "    In your compassion, blot out all my sin.\n" +
+        "    F#m         Bm               G          Bm\n" +
+        "    Thoroughly cleanse me from all of my guilt.\n" +
+        "    Em             F#m       Em7    A\n" +
+        "    Wash me till I'm whiter than snow.\n\n" +
+        "2.  Restore to me the joy of your salvation.\n" +
+        "    Uphold me with a willing spirit.\n" +
+        "    So I will teach transgressors your ways.\n" +
+        "    And sinners will return to You.\n\n" +
+        "3.  You are pleased with sincerity of heart,\n" +
+        "    Not with sacrifices or with holocausts.\n" +
+        "    My sacrifice is a broken spirit,\n" +
+        "    For You will not refuse a humble heart."
+    },
+    {
+      title: "Hosea",
+      artist: "Hymnal #143",
+      tag: SEED_TAG,
+      lyrics: "Intro: G - Em - D7\n\n" +
+        "G                        GM7\n1. Come back to me with all your heart.\n" +
+        "C                    G\nDon't let fear keep us apart\n" +
+        "G                        GM7\nTrees do bend though straight and tall.\n" +
+        "C                G\nSo must we to other's call.\n\n" +
+        "Refrain:\n" +
+        "D          D7         Em\nLong have I waited for your coming\n" +
+        "     A7         G   D7        G\nHome to me and living deeply our new life.\n\n" +
+        "2. The wilderness will lead you\n" +
+        "   To your heart where I will speak.\n" +
+        "   Integrity and justice,\n" +
+        "   With tenderness, you shall know.\n" +
+        "   G                Em\n   You shall sleep secure with peace\n" +
+        "   C                G\n   Faithfulness will be your joy."
+    },
+    {
+      title: "Prodigal Son (Father I Have Sinned)",
+      artist: "SRCP Version",
+      tag: SEED_TAG,
+      lyrics: "[Intro]\nE A E A E\n\n" +
+        "[Verse]\nE\nFather I have sinned\n" +
+        "A                    E\nHelp me find my way\n" +
+        "A                E    F#m\nRemember not my sins,\n" +
+        "              B   B7\nJust let me hear You say:\n\n" +
+        "[Chorus]\n" +
+        "      E          A\nI Forgive You, I Love You\n" +
+        "      E            B\nYou Are Mine, Take My Hand\n" +
+        "        C#m         A   B7        E   A\nGo In Peace,  Sin No More   Beloved One\n\n" +
+        "[Verse]\nE\nFather I have turned\n" +
+        "A                     E\nMy back and walked away\n" +
+        "A                  E    F#m\nDepended on my strength\n" +
+        "              B   B7\nAnd lived life my own way\n\n" +
+        "[Chorus]\n\n" +
+        "[Verse]\nE\nFather I've Returned\n" +
+        "A                     E\nI'm home with You to stay\n" +
+        "A                   E    F#m\nStanding by Your door\n" +
+        "              B   B7\nKnowing That You'll Say:\n\n" +
+        "[Chorus]\n" +
+        "      E          A\nI Forgive You, I Love You\n" +
+        "      E            B\nYou Are Mine, Take My Hand\n" +
+        "        C#m         A   B7        E   A E\nGo In Peace,  Sin No More   Beloved One"
+    },
+    {
+      title: "Change My Heart",
+      artist: "Hymnal #61",
+      tag: SEED_TAG,
+      lyrics: "A       F#m7      Bm-E        A   F#m\n" +
+        "Change my heart, O God, make it ever true\n" +
+        "                Bm-E              A   C#\n" +
+        "Change my heart, O God, may I be like you\n\n" +
+        "Refrain:\n" +
+        "        F#m  Bm-E  the  A   C#\nYou are the potter, I am clay\n" +
+        "        F#m      B          E\nMold me and make me, this is what I pray."
+    },
+    {
+      title: "Refiner's Fire",
+      artist: "Brian Doerksen",
+      tag: SEED_TAG,
+      lyrics: "Intro: C-F-C-F\n\n" +
+        "[Verse 1]\nC-G           Am\nPurify my heart\n" +
+        "           Dm         G\nLet me be as gold & precious silver\n" +
+        "C-G           Am\nPurify my heart\n" +
+        "        Dm     C     G\nLet me be as gold, pure gold\n\n" +
+        "[Chorus]\nC-F      G\nRefiner's fire\n" +
+        "C         F        G       C   G\nMy heart's one desire is to be holy\n" +
+        "C     F       G\nSet apart for You Lord\n" +
+        "C          G\nI choose to be holy\n" +
+        "C     F         C     G\nSet apart for you my master\n" +
+        "Dm         G       F   C\nReady to do Your will\n\n" +
+        "[Verse 2]\nC-G           Am\nPurify my heart\n" +
+        "              Dm        G\nCleanse me from within & make me holy\n" +
+        "C-G           Am\nPurify my heart\n" +
+        "              Dm      C   G\nCleanse me from my sin, deep within"
+    },
+    {
+      title: "Still",
+      artist: "Hillsong Worship (Reuben Morgan)",
+      tag: SEED_TAG,
+      lyrics: "Intro: F-Am7-C-G\n\n" +
+        "[Verse 1]\nC        G   Am7        F   D  G\nHide me now, under Your wings\n" +
+        "C-G  Am           F      Dm   G\nCover me, within Your mighty hands\n\n" +
+        "[Chorus]\nC                F      G       C\nWhen the oceans rise & thunders roar\n" +
+        "       F        G       Am\nI will soar with You above the storm\n" +
+        "        F        G     C\nFather You are King over the flood\n" +
+        "     F         G     C\nI will be still, know You are God\n\n" +
+        "[Verse 2]\nC        G   Am7          F    D-G\nFind rest my soul, in Christ a-lone\n" +
+        "C     G   Am        F-Dm        G\nKnow His pow'r, in quietness & trust\n\n" +
+        "[Repeat Chorus]"
+    },
+    {
+      title: "We Fall Down",
+      artist: "Chris Tomlin",
+      tag: SEED_TAG,
+      lyrics: "Capo 2\nIntro: D-A-Bm-G-Em\nD-A-Bm-G-A\n\n" +
+        "D                  A-Bm            G       Em\n" +
+        "We fall down, we lay our crown at the feet of Jesus\n" +
+        "D                  A-Bm             G       A\n" +
+        "The greatness of His mercy & love at the feet of Jesus\n\n" +
+        "         G     Bm    A\nWe cry, Holy, holy, holy\n" +
+        "         G     Bm    A\nWe cry, Holy, holy, holy\n" +
+        "         G     Bm    A       D\nWe cry, Holy, holy, holy is the Lamb"
+    },
+    {
+      title: "God Is My Refuge",
+      artist: "Hymnal #106",
+      tag: SEED_TAG,
+      lyrics: "G   D    Em         C       Am7  G  Am7 D\n" +
+        "God is my refuge, my trust and my deliverer.\n" +
+        "G   D    Em        C     Am   D\n" +
+        "A help close at hand in times of distress.\n" +
+        "Am7-D  G   Bm  Em            C\nSo   I will lift my eyes unto the mountains,\n" +
+        "        Am7           D\nFrom whence comes my help?\n" +
+        "Am7  D    G      Bm     Em\nFrom the Lord, enthroned on high;\n" +
+        "          C       Am7   D          C  G\nHe is my rock and my salvation, I'll stand firm.\n\n" +
+        "(Repeat 2x)\n" +
+        "         C D Am7-D G      Bm\n...I'll stand firm. So   I will lift... (to end)\n\n" +
+        "Ending:\n   C   G\nI'll stand firm."
+    },
+    {
+      title: "Breathe",
+      artist: "Michael W. Smith",
+      tag: SEED_TAG,
+      lyrics: "G              C/G\nThis is the air I breathe\n" +
+        "G              C/G\nThis is the air I breathe\n" +
+        "G     D    Em     D C    Em D\nYour holy presence living in me\n\n" +
+        "G              C/G\nThis is my daily bread\n" +
+        "G              C/G\nThis is my daily bread\n" +
+        "G     D   Em   D C    Em  D\nYour very word  spoken to me\n\n" +
+        "    G  D/F# Em D             C     Em D\nAnd I,       I'm desperate for you\n" +
+        "    G  D/F# Em D             C     Em D\nAnd I,       I'm lost without you"
+    },
+    {
+      title: "In Moments Like These",
+      artist: "Hymnal #172",
+      tag: SEED_TAG,
+      lyrics: "Intro: D Bm Em A  E A D-A\n\n" +
+        "D                Bm      Em          A\nIn moments like these I sing out a song,\n" +
+        "   Em          A            D-A\nI sing out a love song to Jesus\n" +
+        "D                Bm      Em          A\nIn moments like these I lift up my hands\n" +
+        "   Em          A            D-D7\nI lift up my hands to the Lord\n" +
+        "        G       A           D-D7\nSinging \"I love You, Lord.\" (2x)\n" +
+        "Intro: G   A   Bm  G   D  A   D-(A7)\n" +
+        "Singing \"I love You,  Lord. I love You.\"\n\n" +
+        "(Repeat, changing underlined word)\n\nPraise.../"
+    },
+    {
+      title: "Lift Up Your Hands To God",
+      artist: "Hymnal #213",
+      tag: SEED_TAG,
+      lyrics: "    C          Fm            C     Bb-C7\n" +
+        "1.  Life is not at all that bad my friend, hmmmm.\n" +
+        "        F\n    If you believe in yourself,\n" +
+        "        G\n    If you believe there's someone\n" +
+        "        Em7                    A7\n    Who walks through life with you,\n" +
+        "        Dm                  G7\n    You'll never be alone, just learn to reach out\n" +
+        "        Em7                    A7\n    And open your heart,\n" +
+        "              Dm7\n    Lift up your hands to God\n" +
+        "        G7                    C-C7\n    And He'll show you the way.\n\n" +
+        "Refrain:\n" +
+        "             F           G/F\nAnd He said: Cast your burdens upon Me\n" +
+        "      Em          A7\nThose who are heavily laden.\n" +
+        "    Dm7               G7\nCome to me all of you who are tired\n" +
+        "    C\nof carrying heavy loads.\n" +
+        "        F              G/F\nFor the yoke I will give you is easy,\n" +
+        "    Em7         A7\nAnd my burden is light.\n" +
+        "    Dm   G7         C  G\nCome to me and I will give you rest.\n\n" +
+        "2.  When you feel the world is\n" +
+        "    Tumbling down... on you,\n" +
+        "    And you have no one that you can hold on to;\n" +
+        "    Just face the rising sun and you'll see hope\n" +
+        "    And there's no need to run,\n" +
+        "    Lift up your hands to God\n" +
+        "    And He'll make you feel alright."
+    },
+    {
+      title: "In His Time",
+      artist: "Hymnal #171",
+      tag: SEED_TAG,
+      lyrics: "Intro: Em A G-D\n\n" +
+        "Em-A            D-Dsus-D\nIn His time,   In His time\n" +
+        "Em                    A            D-D7\nHe makes all things beautiful in His time\n" +
+        "        G                A\nLord please show me everyday\n" +
+        "        F#m               Bm\nAs You're teaching me your way\n" +
+        "Em                       A            G-D\nThat we do just what You say in Your time.\n\n" +
+        "Em-A            D\nIn Your time,   In Your time,\n" +
+        "Em                     A          D-D7\nYou make all things beautiful in Your time\n" +
+        "    G                A\nLord my life to You I bring,\n" +
+        "        F#m             Bm\nMay each song I have to sing\n" +
+        "Em                       A           G-D\nBe to You a lovely thing in Your time.\n\n" +
+        "Ending:\n     Em            A          G-D\nBe to You a lovely thing in Your time."
+    },
+    {
+      title: "You Are My Hiding Place",
+      artist: "Hymnal #459",
+      tag: SEED_TAG,
+      lyrics: "Am        Dm\nYou are my hiding place\n" +
+        "G          C                  Am           Dm\nYou always fill my heart with songs of deliverance\n" +
+        "      E         E7                 Am\nWhenever I am afraid I will trust in You.\n\n" +
+        "Coda:\n" +
+        "Dm       G   C                    Dm     E\nI will trust in You, let the weak say I am strong\n" +
+        "           E7                        Am\nIn the strength of the Lord I will trust in You.\n" +
+        "(Repeat song)"
+    },
+    {
+      title: "I Love You, Lord",
+      artist: "Hymnal #157",
+      tag: SEED_TAG,
+      lyrics: "A7 D              A            D\nI love you, Lord and I lift my voice\n" +
+        "   G-F#m-Em  D         A     A7\nTo worship you, O, my soul, rejoice.\n" +
+        "   D              A           D\nTake joy, my King, in what you hear.\n" +
+        "        G  F#m  Em   A7        G-D (A7)\nMay it be a sweet, sweet sound in your ear.\n\n" +
+        "(Repeat 2x)"
+    },
+    {
+      title: "Shout To The Lord",
+      artist: "Hillsong Worship feat. Darlene Zschech",
+      tag: SEED_TAG,
+      lyrics: "[Part 1]\n" +
+        "G           D           Em          D        C\nMy Jesus, My Savior, Lord there is none like you\n" +
+        "C     G     C           G          Em                  F  C/E D\nAll of my days, I want to praise, the wonders of your mighty love\n" +
+        "G           D           Em          D        C\nMy comfort, My shelter, tower of refuge and strength\n" +
+        "C     G     C           G          Em                  F  C/E D\nLet every breath, all that I am, never cease to worship you\n\n" +
+        "[Chorus]\n" +
+        "G          Em          C          D\nShout to the Lord all the earth let us sing\n" +
+        "G          Em          C          D\nPower and majesty praise to the king\n" +
+        "Em                   C                         D     Em   D\nMountains bow down and the seas will roar at the sound of your name\n" +
+        "G          Em          C          D\nI sing for joy at the work of your hands\n" +
+        "G          Em          C          D\nForever I'll love you forever I'll stand\n" +
+        "Em                   C          D          G\nNothing compares to the promise I have in You\n\n" +
+        "(Repeat Part 1 & Chorus)\n\n" +
+        "[Outro]\n" +
+        "F#m                          D          E          A\nNothing compares to the promise I have in You\n" +
+        "F#m                          D          E          A\nNothing compares to the promise I have in You"
+    },
+    {
+      title: "Make My Heart Your Dwelling Place",
+      artist: "Hymnal #233",
+      tag: SEED_TAG,
+      lyrics: "D           D/C#          Bm         Bm/A\nMake my heart your dwelling place,\n" +
+        "    G                          D    Asus  A7\nA temple just for You;\n" +
+        "D           D/C#          Bm         Bm/A\nA consecrated resting place,\n" +
+        "    Em                F#\nA vessel ever true,\n" +
+        "G                       D\nMake my heart a fire,\n" +
+        "       F#                          Bm     G\nWith the brightness of Your Son,\n" +
+        "D           D/C#          Bm         G\nMake my heart a dwelling place,\n" +
+        "    Em      Asus A7   D\nFor the Ho - ly One."
+    },
+    {
+      title: "My God And My All",
+      artist: "Cowan",
+      tag: SEED_TAG,
+      lyrics: "D      A   G   G/F#           Em            Asus  A7\n" +
+        "My God and my All,   my Lord and my Savior,\n" +
+        "    F#m           Bm  Bm/A  G   A7         D  Asus A7\n" +
+        "My King, my Creator,   my  Father, my All."
+    },
+    {
+      title: "There Is None Like You",
+      artist: "Darlene Zschech",
+      tag: SEED_TAG,
+      lyrics: "[Intro]\nEm C2 C G/D  D7sus4 G\n\n" +
+        "[Chorus]\n" +
+        "G          D/F#       C/E G/D\nThere is none like You\n" +
+        "C        G/B                   Am7               Dsus4 D\nNo one else can touch my heart like You do\n" +
+        "G          D/F#           F6      C/E Cm/Eb G/D\nI could search for all eternity long and find\n" +
+        "       Dsus4     G     C/E  D/F#\nThere is none like You\n\n" +
+        "(repeat at your own choice)\n\n" +
+        "[Interlude]\nEm C2  C G/D  Dsus4\n\n" +
+        "[Verse]\n" +
+        "    Cmaj7    D/F#      G     Em7\nYour mercy flows like a river wide\n" +
+        "     Am7     Dsus4         G\nAnd healing comes from Your hands\n" +
+        "Cmaj7      D/F#      G              Em7\nSuffering children are safe in Your arms\n" +
+        "Am7        C/G      D/F#  C/E  D/F#\nThere is none like You\n\n" +
+        "[Tag]\n" +
+        "G       D/F#             F6     C/E Cm/Eb G/D\nI could search for all eternity long and find\n" +
+        "       Dsus4   G\nThere is none like You\n\n" +
+        "[Outro]\nEm C2 C G/D Dsus4 G"
+    },
+    {
+      title: "Goodness Of God",
+      artist: "Bethel Music / Jenn Johnson",
+      tag: SEED_TAG,
+      lyrics: "Capo 1\nIntro: (G - Gsus4 - G) (3x)\n\n" +
+        "[Verse 1]\n       G\nI love you, Lord\n" +
+        "        C          G\nFor Your mercy never fails me\n" +
+        "D              Em         C           D\nAll my days, I've been held in Your hands\n" +
+        "            Em            C\nFrom the moment that I wake up\n" +
+        "G-D-Em\nUntil I lay my head\n" +
+        "  C              D           G\nI will sing of the goodness of God\n\n" +
+        "[Chorus]\n" +
+        "C                  G\nAll my life You have been faithful\n" +
+        "C                  G           D\nAll my life You have been so, so good\n" +
+        "C                          G-D-Em\nWith every breath that I am able\n" +
+        "    C            D          G\nI will sing of the goodness of God\n\n" +
+        "[Verse 2]\n" +
+        "          G                 C\nI love Your voice, You have led me\n" +
+        "                G\nthrough the fire\n" +
+        "D              Em          C\nIn darkest night You are close like no other\n" +
+        "              Em-C\nI've known You as a Father\n" +
+        "G-D-Em\nI've known You as a friend\n" +
+        "           G              D  (Repeat Chorus)\nI have lived in the goodness of God"
+    },
+    {
+      title: "Mighty King Of Zion",
+      artist: "Hymnal #240",
+      tag: SEED_TAG,
+      lyrics: "Capo 3\n" +
+        "   Em        Em/D    C        D\n1. Praise You Lord, Mighty King of Zion,\n" +
+        "   Em            C     B7\n   Mighty God of Isra - el!\n" +
+        "   Em                       C     D\n   Save us Lord from the roa-ring lion,\n" +
+        "        C          D          Em\n   Cast down the workings of the Infidel!\n\n" +
+        "Refrain:\n" +
+        "G          D          C     D\nO my strength I will sing Thy praises\n" +
+        "G          D          C     B7\nThou O Lord are a shield to me\n" +
+        "G          D          C     D\nO my King though the battle rages\n" +
+        "C          D          Em\nI look with vict'ry on my enemies!\n\n" +
+        "Ending:\nC          D          Em\nPraise you Lord, Mighty King of Zion!\n\n" +
+        "2. Rouse Thyself like a roaring fire\n" +
+        "   Israel's hope Bright Morning Star!\n" +
+        "   Burn like chaff the father of liars\n" +
+        "   Light up creation with Thy blazing pow'r."
+    }
+  ];
+
+  var importBanner = document.getElementById('import-banner');
+  var btnImportYes = document.getElementById('btn-import-yes');
+  var btnImportNo = document.getElementById('btn-import-no');
+
+  var importBannerTitleEl = document.getElementById('import-banner-title');
+  var importBannerDescEl = document.getElementById('import-banner-desc');
+
+  var importBannerDismissedThisSession = false;
+
+  function maybeShowImportBanner(){
+    if (importBannerDismissedThisSession) { importBanner.classList.add('hidden'); return; }
+    var existingTitles = lyrics.map(function(l){ return (l.title||'').trim().toLowerCase(); });
+    var missing = SEED_SONGS.filter(function(s){ return existingTitles.indexOf(s.title.toLowerCase()) === -1; });
+    if (missing.length === 0){
+      importBanner.classList.add('hidden');
+      return;
+    }
+    if (importBannerTitleEl) importBannerTitleEl.textContent = missing.length === 1 ? 'Add included song?' : 'Add included songs?';
+    if (importBannerDescEl) importBannerDescEl.textContent = missing.length + (missing.length === 1 ? ' song is' : ' songs are') + ' ready to import.';
+    importBanner.classList.remove('hidden');
+  }
+
+  function dismissImportBanner(){
+    importBannerDismissedThisSession = true;
+    importBanner.classList.add('hidden');
+  }
+
+  btnImportNo.addEventListener('click', dismissImportBanner);
+
+  btnImportYes.addEventListener('click', function(){
+    btnImportYes.disabled = true;
+    btnImportYes.textContent = 'Importing…';
+    var existingTitles = lyrics.map(function(l){ return (l.title||'').trim().toLowerCase(); });
+    var toAdd = SEED_SONGS.filter(function(s){ return existingTitles.indexOf(s.title.toLowerCase()) === -1; });
+    var chain = Promise.resolve();
+    toAdd.forEach(function(song){
+      chain = chain.then(function(){
+        return saveLyricRecord({ title: song.title, artist: song.artist, tag: song.tag, lyrics: song.lyrics }, null);
+      });
+    });
+    chain.then(function(){
+      showToast('Added ' + toAdd.length + ' songs to your songbook');
+      dismissImportBanner();
+      switchTab('library');
+    });
+  });
+
+  // ---------------- Init ----------------
+  renderLibrary();
+  maybeShowImportBanner();
+  initStorage();
+
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(err){
+        console.error('Service worker registration failed', err);
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>
